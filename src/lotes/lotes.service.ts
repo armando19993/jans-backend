@@ -288,7 +288,7 @@ export class LotesService {
         worksheet.addRow({
           factura: {
             text: 'Ver Factura',
-            hyperlink: document.factura_pdf,
+            hyperlink: `https://api.jansprogramming.com.co/pdfs/${document.cufe}.pdf`,
           },
           tipo_documento: document.tipo,
           forma_pago: document.forma_pago,
