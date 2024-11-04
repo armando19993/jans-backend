@@ -60,7 +60,30 @@ export class ComunicationsService {
     return `This action updates a #${id} comunication`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} comunication`;
+  async remove(id: number) {
+    return await this.comunicationRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        const comunication = await transactionalEntityManager.findOne(
+          this.comunicationRepository.target,
+          { where: { id } },
+        );
+
+        if (!comunication) {
+          throw new Error('Comunicación no encontrada');
+        }
+
+        await transactionalEntityManager.delete(
+          this.comunicationClientRepository.target,
+          { comunication },
+        );
+
+        await transactionalEntityManager.remove(
+          this.comunicationRepository.target,
+          comunication,
+        );
+
+        return { message: 'Eliminado con éxito' };
+      },
+    );
   }
 }
