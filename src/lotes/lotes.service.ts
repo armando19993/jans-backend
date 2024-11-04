@@ -211,27 +211,26 @@ export class LotesService {
       .createQueryBuilder('lote')
       .leftJoinAndSelect('lote.company', 'company')
       .leftJoinAndSelect('lote.user', 'user');
-  
+
     // Condiciones según el rol del usuario
     if (user.role === TYPES_USERS.OPERATOR) {
       query = query.andWhere('lote.userId = :userId', { userId: user.id });
     }
-  
+
     if (user.role === TYPES_USERS.ADMIN) {
       query = query.andWhere('lote.companyId = :companyId', {
         companyId: user.company.id,
       });
     }
-  
+
     // Ordenar por id de forma descendente
     query = query.orderBy('lote.id', 'DESC');
-  
+
     // Obtener los resultados
     let data = await query.getMany();
-  
+
     return { data, message: 'Listado de lotes obtenidos con éxito' };
   }
-  
 
   async findOne(id: number) {
     let data = await this.loteRepository.findOne({
@@ -285,7 +284,7 @@ export class LotesService {
               .join('\n')
           : 'Sin eventos';
       if (document.tipo != 'Documento soporte con no obligados') {
-        worksheet.addRow({
+        const row = worksheet.addRow({
           factura: {
             text: 'Ver Factura',
             hyperlink: `https://api.jansprogramming.com.co/pdfs/${document.cufe}.pdf`,
@@ -307,6 +306,13 @@ export class LotesService {
             hyperlink: `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${document.cufe}`,
           },
         });
+
+        // Aplicar estilos para simular un enlace
+        const facturaCell = row.getCell('factura');
+        facturaCell.font = { color: { argb: 'FF0000FF' }, underline: true }; // Azul con subrayado
+
+        const qrCell = row.getCell('qr');
+        qrCell.font = { color: { argb: 'FF0000FF' }, underline: true }; // Azul con subrayado
       }
     });
 
