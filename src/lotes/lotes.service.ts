@@ -90,28 +90,10 @@ export class LotesService {
 
         // Procesar documentos en el chunk en paralelo
         const chunkPromises = chunk.map(async (documento) => {
-          // Obtener la empresa asociada
-          const empresa = await this.companyRepository.findOne({
-            where: { id: documento.lote.company.id },
-          });
 
-          // Verificar si la empresa tiene ctda_documents en 0
-          if (empresa && empresa.ctda_documents > 0) {
             const result = await this.procesarDocumento(documento);
-
-            // Restar uno de ctda_documents
-            let valor = empresa.ctda_documents - 1;
-            await this.companyRepository.update(empresa.id, {
-              ctda_documents: valor,
-            });
-
             return result;
-          } else {
-            console.warn(
-              `Documento ${documento.cufe} no procesado: ctda_documents en 0 o empresa no encontrada.`,
-            );
-            return null; // O manejar el caso de manera diferente según tus necesidades
-          }
+        
         });
 
         const chunkResults = await Promise.allSettled(chunkPromises);
