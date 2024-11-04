@@ -42,10 +42,10 @@ export class LotesService {
       let tipo = documento['Tipo de documento'];
 
       if (cufe) {
-        if (tipo == 'Documento soporte con no obligados') {
+        if (tipo == 'Documento soporte con no obligados' || tipo == 'Nota de crédito electrónica') {
           await this.documentRepository.save({
             cufe,
-            tipo: 'Documento soporte con no obligados',
+            tipo,
             status: true,
             razon_social_emisor: 'ESTE TIPO DE DOCUMENTO NO SE PROCESA',
             lote: data,
