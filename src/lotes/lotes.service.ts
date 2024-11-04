@@ -42,7 +42,10 @@ export class LotesService {
       let tipo = documento['Tipo de documento'];
 
       if (cufe) {
-        if (tipo == 'Documento soporte con no obligados' || tipo == 'Nota de crédito electrónica') {
+        if (
+          tipo == 'Documento soporte con no obligados' ||
+          tipo == 'Nota de crédito electrónica'
+        ) {
           await this.documentRepository.save({
             cufe,
             tipo,
@@ -168,7 +171,8 @@ export class LotesService {
       // Actualizar el documento en la base de datos
       await this.documentRepository.update(documento.id, {
         tipo: result.datos_factura.tipo_documento,
-        nro_factura: result.datos_factura.serie + result.datos_factura.folio,
+        nro_factura:
+          (result.datos_factura.serie || '') + result.datos_factura.folio,
         date_factura: formattedDate,
         nit_emisor: result.secciones.emisor.NIT,
         razon_social_emisor: result.secciones.emisor.Nombre,
