@@ -23,7 +23,6 @@ export class CreateUserDto {
   @IsOptional()
   company: Company;
 
-  @Transform(({ value }) => STATUS_ENUM[value as keyof typeof STATUS_ENUM])
   @IsOptional()
   status: STATUS_ENUM
 }
