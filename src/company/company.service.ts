@@ -34,8 +34,10 @@ export class CompanyService {
     return { data, message: 'Listado de empresas obtenidos' };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} company`;
+  async findOne(id: number) {
+    let data = await this.companyRepository.findOne({ where: { id } });
+
+    return { data, message: 'Informacion de empresa' };
   }
 
   async update(id: number, updateCompanyDto: UpdateCompanyDto) {
@@ -71,7 +73,7 @@ export class CompanyService {
       const users = await this.userRepository
         .createQueryBuilder('user')
         .where('user.companyId = :companyId', { companyId: user.company.id })
-        .getCount()
+        .getCount();
 
       const [lotesEncontrados, count] = await this.loteRepository.findAndCount({
         where: { company: user.company },
