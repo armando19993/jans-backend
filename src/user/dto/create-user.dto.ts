@@ -2,6 +2,7 @@ import { IsString, IsEnum, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { TYPES_USERS } from '../enums/types-users.enum';
 import { Company } from 'src/company/entities/company.entity';
+import { STATUS_ENUM } from 'src/enums/status.enums';
 
 export class CreateUserDto {
   @IsString()
@@ -21,4 +22,8 @@ export class CreateUserDto {
 
   @IsOptional()
   company: Company;
+
+  @Transform(({ value }) => STATUS_ENUM[value as keyof typeof STATUS_ENUM])
+  @IsOptional()
+  status: STATUS_ENUM
 }
