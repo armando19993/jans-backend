@@ -90,10 +90,8 @@ export class LotesService {
 
         // Procesar documentos en el chunk en paralelo
         const chunkPromises = chunk.map(async (documento) => {
-
-            const result = await this.procesarDocumento(documento);
-            return result;
-        
+          const result = await this.procesarDocumento(documento);
+          return result;
         });
 
         const chunkResults = await Promise.allSettled(chunkPromises);
@@ -213,20 +211,27 @@ export class LotesService {
       .createQueryBuilder('lote')
       .leftJoinAndSelect('lote.company', 'company')
       .leftJoinAndSelect('lote.user', 'user');
-    if (user.role == TYPES_USERS.OPERATOR) {
-      query = query.where('lote.userId = :userId', { userId: user.id });
+  
+    // Condiciones según el rol del usuario
+    if (user.role === TYPES_USERS.OPERATOR) {
+      query = query.andWhere('lote.userId = :userId', { userId: user.id });
     }
-
-    if (user.role == TYPES_USERS.ADMIN) {
-      query = query.where('lote.companyId = :companyId', {
+  
+    if (user.role === TYPES_USERS.ADMIN) {
+      query = query.andWhere('lote.companyId = :companyId', {
         companyId: user.company.id,
       });
     }
-
+  
+    // Ordenar por id de forma descendente
+    query = query.orderBy('lote.id', 'DESC');
+  
+    // Obtener los resultados
     let data = await query.getMany();
-
-    return { data, message: 'Listado de lotes obtenidos con exito' };
+  
+    return { data, message: 'Listado de lotes obtenidos con éxito' };
   }
+  
 
   async findOne(id: number) {
     let data = await this.loteRepository.findOne({
