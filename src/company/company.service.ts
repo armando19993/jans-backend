@@ -68,12 +68,19 @@ export class CompanyService {
     let empresas = 0;
     let lotes = 0;
     let documentos = 0;
+    let disponibles = 0;
 
     if (user.role == 'ADMIN') {
       const users = await this.userRepository
         .createQueryBuilder('user')
         .where('user.companyId = :companyId', { companyId: user.company.id })
         .getCount();
+
+      const company = await this.companyRepository.findOne({
+        where: { id: user.company.id },
+      });
+
+      disponibles = company.ctda_documents;
 
       const [lotesEncontrados, count] = await this.loteRepository.findAndCount({
         where: { company: user.company },
@@ -109,7 +116,7 @@ export class CompanyService {
         0,
       );
     }
-    let data = { empresas, usuarios, lotes, documentos };
+    let data = { empresas, usuarios, lotes, documentos, disponibles };
 
     return { data, message: 'Estadisticas obtenidas con exito' };
   }
