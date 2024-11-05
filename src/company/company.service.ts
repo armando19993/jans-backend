@@ -76,6 +76,7 @@ export class CompanyService {
         .where('user.companyId = :companyId', { companyId: user.company.id })
         .getCount();
 
+      usuarios = users;
       const company = await this.companyRepository.findOne({
         where: { id: user.company.id },
       });
@@ -90,11 +91,12 @@ export class CompanyService {
 
       lotes = lotesC;
 
-      const totalDocuments = await this.loteRepository.createQueryBuilder('lote')
-      .innerJoin('lote.documents', 'documents')
-      .where('lote.companyId = :companyId', { companyId: user.company.id })
-      .select('COUNT(documents.id)', 'total')
-      .getRawOne();
+      const totalDocuments = await this.loteRepository
+        .createQueryBuilder('lote')
+        .innerJoin('lote.documents', 'documents')
+        .where('lote.companyId = :companyId', { companyId: user.company.id })
+        .select('COUNT(documents.id)', 'total')
+        .getRawOne();
 
       documentos = totalDocuments.total;
     }
