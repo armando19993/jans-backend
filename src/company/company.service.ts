@@ -82,22 +82,21 @@ export class CompanyService {
 
       disponibles = company.ctda_documents;
 
-      const lotesC = await this.loteRepository.createQueryBuilder("lote")
-      .innerJoinAndSelect("lote.documents", "documents")
-      .where("lote.companyId = :companyId", {companyId: user.company.id})
-      .getCount()
+      const lotesC = await this.loteRepository
+        .createQueryBuilder('lote')
+        .innerJoinAndSelect('lote.documents', 'documents')
+        .where('lote.companyId = :companyId', { companyId: user.company.id })
+        .getCount();
 
-      const [lotesEncontrados, count] = await this.loteRepository.findAndCount({
-        where: { company: user.company },
-        relations: ['documents'],
-      });
-      
       lotes = lotesC;
-      documentos = lotesEncontrados.reduce(
-        (sum, lote) => sum + lote.documents.length,
-        0,
-      );
-      usuarios = users;
+
+      const totalDocuments = await this.loteRepository
+        .createQueryBuilder('lote')
+        .innerJoin('lote.documents', 'documents')
+        .where('lote.companyId = :companyId', { companyId: user.company.id })
+        .getCount();
+
+      documentos = totalDocuments;
     }
 
     if (user.role == 'SADMIN') {
