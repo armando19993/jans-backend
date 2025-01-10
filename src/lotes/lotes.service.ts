@@ -135,7 +135,7 @@ export class LotesService {
       const documentKey = documento.cufe;
 
       const response = await fetch(
-        `http://62.146.181.113:5000/process?documentKey=${documentKey}`,
+        `https://lector.jansprogramming.com.co/process?documentKey=${documentKey}`,
       );
       const result = await response.json();
 
