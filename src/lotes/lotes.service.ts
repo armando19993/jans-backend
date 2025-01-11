@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateLoteDto } from './dto/create-lote.dto';
 import { UpdateLoteDto } from './dto/update-lote.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,6 +12,8 @@ import { Event } from 'src/events/entities/event.entity';
 import { TYPES_USERS } from 'src/user/enums/types-users.enum';
 import * as ExcelJS from 'exceljs';
 import { Company } from 'src/company/entities/company.entity';
+import axios from 'axios';
+import * as pdf from 'pdf-parse';
 
 @Injectable()
 export class LotesService {
@@ -46,7 +48,7 @@ export class LotesService {
     try {
       // Verificar la respuesta del API DIAN
       const response = await fetch(`https://lector.jansprogramming.com.co/process?documentKey=${cufe}`);
-      
+
       const result = await response.json();
       if (result.error) {
         throw new BadRequestException(`Error con el API DIAN: ${result.error}`);
@@ -176,6 +178,15 @@ export class LotesService {
         result.pdf_base64,
       );
 
+      let metodoPago = null;
+      try {
+        const pdfData = await this.extractInvoiceDataFromUrl(pdfUrl);
+        metodoPago = pdfData.formaDePago;
+      } catch (pdfError) {
+        console.error('Error al extraer método de pago del PDF:', pdfError);
+        // Continuamos con el proceso aunque falle la extracción del método de pago
+      }
+
       // Actualizar el documento en la base de datos
       await this.documentRepository.update(documento.id, {
         tipo: result.datos_factura.tipo_documento,
@@ -190,6 +201,7 @@ export class LotesService {
         total: totalValue,
         legitimo_tenedor: result.legitimo_tenedor,
         factura_pdf: pdfUrl,
+        forma_pago: metodoPago,
         status: true,
       });
 
@@ -220,6 +232,56 @@ export class LotesService {
 
       console.error(`Error procesando documento ${documento.cufe}:`, error);
       throw new Error(`Error en documento ${documento.cufe}: ${error.message}`);
+    }
+  }
+
+  async extractInvoiceDataFromUrl(pdfUrl: string): Promise<Record<string, string | null>> {
+    try {
+      // Descargar el PDF desde la URL
+      const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(response.data);
+
+      // Extraer el texto del PDF
+      const data = await pdf(buffer);
+      const text = data.text;
+
+      // Expresiones regulares mejoradas con patrones más flexibles
+      const patterns = {
+        numeroDeFactura: /Número de Factura:\s*(.*?)(?=Forma de pago:)/is,
+        formaDePago: /Forma de pago:\s*([^\n\r]+)/i,
+        fechaDeEmision: /Fecha de Emisión:\s*(\d{2}\/\d{2}\/\d{4})/i,
+        medioDePago: /Medio de Pago:\s*([^\n\r]+)/i,
+        fechaDeVencimiento: /Fecha de Vencimiento:\s*(\d{2}\/\d{2}\/\d{4})/i,
+        tipoDeOperacion: /Tipo de Operación:\s*(.*?)(?=Fecha de orden de pedido:)/is,
+        razonSocial: /Razón Social:\s*([^\n\r]+)/i,
+        nit: /Nit del Emisor:\s*(\d+)/i,
+        total: /Total factura \(=\)\s*COP \$ ([\d.,]+)/i
+      };
+
+      // Función helper para extraer datos
+      const extractData = (pattern: RegExp): string | null => {
+        const match = text.match(pattern);
+        return match ? match[1].trim() : null;
+      };
+
+      // Extraer todos los datos
+      const result: Record<string, string | null> = {};
+      for (const [key, pattern] of Object.entries(patterns)) {
+        result[key] = extractData(pattern);
+      }
+
+      // Procesar los datos extraídos
+      if (result.total) {
+        result.total = result.total.replace(/,/g, '');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error al procesar el PDF:', error);
+      throw new HttpException(
+        'Error al procesar el PDF desde la URL',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

@@ -22,6 +22,6 @@ export class PdfHandlerService {
     const fullPath = path.join(process.cwd(), this.pdfDirectory, fileName);
     
     await fs.promises.writeFile(fullPath, pdfBuffer);
-    return `${process.env.APP_URL || 'http://localhost:3000'}/pdfs/${fileName}`;
+    return `${process.env.APP_URL || 'http://localhost:4000'}/pdfs/${fileName}`;
   }
 }

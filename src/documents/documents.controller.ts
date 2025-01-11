@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, HttpStatus } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -30,5 +30,18 @@ export class DocumentsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.documentsService.remove(+id);
+  }
+
+  @Post('extract-forma-pago-from-url')
+  async extractInvoiceData(@Body('url') url: string) {
+    if (!url) {
+      throw new HttpException(
+        'La URL del PDF es requerida',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const invoiceData = await this.documentsService.extractInvoiceDataFromUrl(url);
+    return invoiceData;
   }
 }
