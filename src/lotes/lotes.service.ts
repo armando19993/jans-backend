@@ -200,7 +200,7 @@ export class LotesService {
         total: totalValue,
         legitimo_tenedor: result.legitimo_tenedor,
         factura_pdf: pdfUrl,
-        // forma_pago: metodoPago,
+        forma_pago: metodoPago,
         status: true,
       });
 
