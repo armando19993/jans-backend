@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateLoteDto } from './dto/create-lote.dto';
 import { UpdateLoteDto } from './dto/update-lote.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,18 +28,45 @@ export class LotesService {
     private readonly eventRepository: Repository<Event>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
-  ) {}
+  ) { }
+
+
   async create(documentos, user) {
-    let data = await this.loteRepository.save({
+    if (!documentos.length) {
+      throw new BadRequestException('El listado de documentos está vacío.');
+    }
+
+    const primerDocumento = documentos[0];
+    const cufe = primerDocumento['CUFE/CUDE'];
+
+    if (!cufe) {
+      throw new BadRequestException('El primer documento no tiene un CUFE válido.');
+    }
+
+    try {
+      // Verificar la respuesta del API DIAN
+      const response = await fetch(`https://lector.jansprogramming.com.co/process?documentKey=${cufe}`);
+      
+      const result = await response.json();
+      if (result.error) {
+        throw new BadRequestException(`Error con el API DIAN: ${result.error}`);
+      }
+    } catch (error) {
+      throw new BadRequestException(`Error al conectar con el API DIAN: ${error.message}`);
+    }
+
+    // Crear el lote si no hay errores con el API
+    const data = await this.loteRepository.save({
       ctda_registros: documentos.length,
       ctda_consultados: 0,
       user: user.id,
       company: user.company.id,
     });
 
+    // Procesar y guardar los documentos
     for (const documento of documentos) {
-      let cufe = documento['CUFE/CUDE'];
-      let tipo = documento['Tipo de documento'];
+      const cufe = documento['CUFE/CUDE'];
+      const tipo = documento['Tipo de documento'];
 
       if (cufe) {
         if (
@@ -62,8 +89,9 @@ export class LotesService {
       }
     }
 
-    return { data, message: 'Lote Creado con exito' };
+    return { data, message: 'Lote creado con éxito' };
   }
+
 
   async procesar() {
     try {
@@ -277,11 +305,11 @@ export class LotesService {
       const events =
         document.events && document.events.length > 0
           ? document.events
-              .map(
-                (event) =>
-                  `${event.code} ${event.description} ${new Date(event.date).toLocaleDateString()}`,
-              )
-              .join('\n')
+            .map(
+              (event) =>
+                `${event.code} ${event.description} ${new Date(event.date).toLocaleDateString()}`,
+            )
+            .join('\n')
           : 'Sin eventos';
       if (document.tipo != 'Documento soporte con no obligados') {
         const row = worksheet.addRow({

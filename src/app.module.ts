@@ -22,7 +22,7 @@ import { ComunicationsClientModule } from './comunications-client/comunications-
       port: parseInt(process.env.DB_PORT, 10) || 3306,
       username: process.env.DB_USERNAME || 'root',
       password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_DATABASE || 'api_medicos',
+      database: process.env.DB_DATABASE || 'api_jans',
       autoLoadEntities: process.env.DB_AUTOLOAD_ENTITIES === 'true' || true,
       synchronize: process.env.DB_SYNCHRONIZE === 'true' || true,
     }),
