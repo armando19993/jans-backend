@@ -292,7 +292,7 @@ export class LotesService {
     if (totalDocuments < 100) return MIN_CHUNK_SIZE;
     if (totalDocuments > 100) return MAX_CHUNK_SIZE;
 
-    return 5;
+    return 50;
   }
 
   async findAll(user) {
