@@ -178,13 +178,13 @@ export class LotesService {
         result.pdf_base64,
       );
 
-      // let metodoPago = null;
-      // try {
-      //   const pdfData = await this.extractInvoiceDataFromUrl(pdfUrl);
-      //   metodoPago = pdfData.formaDePago;
-      // } catch (pdfError) {
-      //   console.error('Error al extraer método de pago del PDF:', pdfError);
-      // }
+      let metodoPago = null;
+      try {
+        const pdfData = await this.extractInvoiceDataFromUrl(pdfUrl);
+        metodoPago = pdfData.formaDePago;
+      } catch (pdfError) {
+        console.error('Error al extraer método de pago del PDF:', pdfError);
+      }
 
       // Actualizar el documento en la base de datos
       await this.documentRepository.update(documento.id, {
