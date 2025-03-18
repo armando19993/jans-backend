@@ -17,7 +17,7 @@ import * as pdf from 'pdf-parse';
 
 @Injectable()
 export class LotesService {
-  private readonly CHUNK_SIZE = 10; // Número de documentos a procesar en paralelo
+  private readonly CHUNK_SIZE = 20; // Número de documentos a procesar en paralelo
   private readonly MAX_RETRIES = 3; // Número máximo de reintentos por documento
 
   constructor(
@@ -43,18 +43,6 @@ export class LotesService {
 
     if (!cufe) {
       throw new BadRequestException('El primer documento no tiene un CUFE válido.');
-    }
-
-    try {
-      // Verificar la respuesta del API DIAN
-      const response = await fetch(`https://lector.jansprogramming.com.co/process?documentKey=${cufe}`);
-
-      const result = await response.json();
-      if (result.error) {
-        throw new BadRequestException(`Error con el API DIAN: ${result.error}`);
-      }
-    } catch (error) {
-      throw new BadRequestException(`Error al conectar con el API DIAN: ${error.message}`);
     }
 
     // Crear el lote si no hay errores con el API
@@ -95,143 +83,201 @@ export class LotesService {
   }
 
 
-  async procesar() {
+  async procesar(authUrl: string, loteId: number) {
     try {
+      const lote = await this.loteRepository.findOne({
+        where: { id: loteId },
+        relations: ['company'],
+      });
+
+      if (!lote) {
+        throw new HttpException('Lote no encontrado', HttpStatus.NOT_FOUND);
+      }
+
       const data = await this.documentRepository.find({
-        where: { status: false },
-        relations: ['lote', 'lote.company'],
+        where: { lote: { id: loteId } },
+        relations: ['lote'],
       });
 
       const totalDocuments = data.length;
+      if (totalDocuments === 0) {
+        throw new HttpException('No hay documentos para procesar', HttpStatus.BAD_REQUEST);
+      }
 
-      // Obtener el tamaño de chunk óptimo
-      const optimalChunkSize = await this.getOptimalChunkSize(totalDocuments);
-      const chunks = _.chunk(data, optimalChunkSize);
+      const chunks = _.chunk(data, this.CHUNK_SIZE);
       const results = [];
       let processedCount = 0;
+      let errorCount = 0;
 
       console.log(
-        `Iniciando procesamiento de ${totalDocuments} documentos en chunks de ${optimalChunkSize}`,
+        `Iniciando procesamiento de ${totalDocuments} documentos en chunks de ${this.CHUNK_SIZE} documentos`,
       );
 
+      let partitionKey = null;
+      try {
+        const documentUrlResponse = await axios.post(`${process.env.URL_BASE}/get_document_url`, {
+          session_url: authUrl
+        });
+
+        if (!documentUrlResponse.data?.partitionKey) {
+          throw new Error('No se pudo obtener la partition key del documento');
+        }
+
+        partitionKey = documentUrlResponse.data.partitionKey;
+        console.log('PartitionKey obtenida:', partitionKey);
+      } catch (error) {
+        console.error('Error al obtener la partition key:', error);
+        throw new HttpException(
+          `Error al obtener la partition key: ${error.message}`,
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      const startTime = Date.now();
+
       // Procesar cada chunk
-      for (const chunk of chunks) {
+      for (const [chunkIndex, chunk] of chunks.entries()) {
         const chunkStartTime = Date.now();
+        console.log(`Procesando chunk ${chunkIndex + 1}/${chunks.length}`);
 
         // Procesar documentos en el chunk en paralelo
         const chunkPromises = chunk.map(async (documento) => {
-          const result = await this.procesarDocumento(documento);
-          return result;
-        });
-
-        const chunkResults = await Promise.allSettled(chunkPromises);
-
-        // Analizar resultados del chunk
-        chunkResults.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value) {
-            results.push(result.value);
+          try {
+            const urlDocument = `https://catalogo-vpfe.dian.gov.co/Document/Details?trackId=${documento.cufe}&partitionKey=${partitionKey}`;
+            const result = await this.procesarDocumento(authUrl, urlDocument, documento.id);
             processedCount++;
-          } else if (result.status === 'rejected') {
-            console.error(
-              `Error en documento ${chunk[index].cufe}:`,
-              result.reason,
-            );
+            return result;
+          } catch (error) {
+            errorCount++;
+            console.error(`Error procesando documento ${documento.cufe}:`, error);
+            return {
+              status: 'error',
+              documentKey: documento.cufe,
+              error: error.message
+            };
           }
         });
 
+        const chunkResults = await Promise.all(chunkPromises);
+        results.push(...chunkResults.filter(r => r !== null));
+
         const chunkTime = Date.now() - chunkStartTime;
         console.log(
-          `Chunk procesado: ${processedCount}/${totalDocuments} documentos. Tiempo: ${chunkTime}ms`,
+          `Chunk ${chunkIndex + 1} completado: ${processedCount}/${totalDocuments} documentos procesados. ` +
+          `Errores: ${errorCount}. Tiempo: ${chunkTime}ms`,
         );
+
+        // Actualizar progreso en el lote
+        await this.loteRepository.update(loteId, {
+          ctda_consultados: processedCount
+        });
       }
+
+      const totalTime = Date.now() - startTime;
+
+      // Actualizar estado final del lote
+      await this.loteRepository.update(loteId, {
+        ctda_consultados: processedCount,
+        procesado: true,
+      });
 
       return {
         message: 'Procesamiento completado',
         totalProcesados: processedCount,
+        totalErrores: errorCount,
         totalDocumentos: totalDocuments,
+        tiempoTotal: `${(totalTime / 1000).toFixed(2)} segundos`,
         resultados: results,
       };
     } catch (error) {
       console.error('Error en el procesamiento batch:', error);
-      throw new Error(`Error en procesamiento batch: ${error.message}`);
+      throw new HttpException(
+        `Error en procesamiento batch: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
   private async procesarDocumento(
+    urlAuth: string,
     documento: any,
+    documentId: number,
     retryCount = 0,
   ): Promise<any> {
+    console.log(documento, urlAuth)
+
+    const response = await axios.post(`${process.env.URL_BASE}/procesar_documento`, { auth_url: urlAuth, url_document: documento })
+
+    const result = await response.data;
+    console.log(result)
+
+    const formattedDate = this.formatDate(result.Fecha_emision);
+    const ivaValue = this.cleanMoneyValue(result.Totales.IVA);
+    const totalValue = this.cleanMoneyValue(result.Totales.Total);
+
+    let pdfUrl = null;
+    let metodoPago = null;
+
+    // Actualizar el documento en la base de datos
     try {
-      const documentKey = documento.cufe;
-
-      const response = await fetch(
-        `https://lector.jansprogramming.com.co/process?documentKey=${documentKey}`,
-      );
-      const result = await response.json();
-
-      const formattedDate = this.formatDate(result.datos_factura.fecha);
-      const ivaValue = this.cleanMoneyValue(result.secciones.totales.IVA);
-      const totalValue = this.cleanMoneyValue(result.secciones.totales.Total);
-
-      const pdfUrl = await this.pdfHandlerService.savePdf(
-        `${documentKey}.pdf`,
-        result.pdf_base64,
-      );
-
-      let metodoPago = null;
-      try {
-        const pdfData = await this.extractInvoiceDataFromUrl(pdfUrl);
-        metodoPago = pdfData.formaDePago;
-      } catch (pdfError) {
-        console.error('Error al extraer método de pago del PDF:', pdfError);
-      }
-
-      // Actualizar el documento en la base de datos
-      await this.documentRepository.update(documento.id, {
-        tipo: result.datos_factura.tipo_documento,
-        nro_factura:
-          (result.datos_factura.serie || '') + result.datos_factura.folio,
+      console.log("tipo: " + result.Tipo_documento)
+      console.log("nro_factura: " + (result.Serie || '') + result.Folio)
+      console.log("date_factura: " + formattedDate)
+      console.log("nit_emisor: " + result.Emisor.NIT)
+      console.log("razon_social_emisor: " + result.Emisor.Nombre)
+      console.log("nit_receptor: " + result.Receptor.NIT)
+      console.log("razon_social_receptor: " + result.Receptor.Nombre)
+      console.log("iva: " + ivaValue)
+      console.log("total: " + totalValue)
+      console.log("legitimo_tenedor: " + result.Legitimo_tenedor)
+      console.log("factura_pdf: " + pdfUrl)
+      console.log("forma_pago: " + metodoPago)
+      await this.documentRepository.update(documentId, {
+        tipo: result.Tipo_documento,
+        nro_factura: (result.Serie || '') + result.Folio,
         date_factura: formattedDate,
-        nit_emisor: result.secciones.emisor.NIT,
-        razon_social_emisor: result.secciones.emisor.Nombre,
-        nit_receptor: result.secciones.receptor.NIT,
-        razon_social_receptor: result.secciones.receptor.Nombre,
+        nit_emisor: result.Emisor.NIT,
+        razon_social_emisor: result.Emisor.Nombre,
+        nit_receptor: result.Receptor.NIT,
+        razon_social_receptor: result.Receptor.Nombre,
         iva: ivaValue,
         total: totalValue,
-        legitimo_tenedor: result.legitimo_tenedor,
+        legitimo_tenedor: result.Legitimo_tenedor,
         factura_pdf: pdfUrl,
         forma_pago: metodoPago,
         status: true,
       });
+    } catch (error) {
+      console.error('Error al actualizar el documento:', error);
+      throw new Error(`Error al actualizar el documento: ${error.message}`);
+    }
 
-      // Recorrer los eventos y hacer inserciones en otra tabla
-      if (result.eventos && Array.isArray(result.eventos)) {
-        for (const evento of result.eventos) {
+
+    // Procesar eventos si existen
+    if (result.Eventos && Array.isArray(result.Eventos)) {
+      for (const evento of result.Eventos) {
+        const document = await this.documentRepository.findOne({ where: { id: documentId } });
+        if (document) {
           await this.eventRepository.save({
-            code: evento.codigo,
-            description: evento.descripcion,
-            date: evento.fecha,
-            document: documento.id,
+            code: evento.Codigo,
+            description: evento.Descripcion,
+            date: new Date(evento.Fecha),
+            document: document
           });
         }
       }
-
-      return {
-        documentKey,
-        status: 'success',
-        pdfUrl,
-      };
-    } catch (error) {
-      if (retryCount < this.MAX_RETRIES) {
-        console.log(
-          `Reintentando documento ${documento.cufe}. Intento ${retryCount + 1}/${this.MAX_RETRIES}`,
-        );
-        return this.procesarDocumento(documento, retryCount + 1);
-      }
-
-      console.error(`Error procesando documento ${documento.cufe}:`, error);
-      throw new Error(`Error en documento ${documento.cufe}: ${error.message}`);
     }
+
+    return {
+      status: 'success',
+      documentId,
+      tipo: result.Tipo_documento,
+      nro_factura: (result.Serie || '') + result.Folio,
+      emisor: result.Emisor.Nombre,
+      receptor: result.Receptor.Nombre,
+      total: totalValue,
+      eventos: result.Eventos?.length || 0
+    };
   }
 
   async extractInvoiceDataFromUrl(pdfUrl: string): Promise<Record<string, string | null>> {

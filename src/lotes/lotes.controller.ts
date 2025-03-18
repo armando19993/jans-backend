@@ -11,6 +11,7 @@ import {
   UseGuards,
   Request,
   Res,
+  Query,
 } from '@nestjs/common';
 import { LotesService } from './lotes.service';
 import { UpdateLoteDto } from './dto/update-lote.dto';
@@ -20,7 +21,7 @@ import { Response } from 'express';
 @Controller('lotes')
 @UseGuards(AuthGuard)
 export class LotesController {
-  constructor(private readonly lotesService: LotesService) {}
+  constructor(private readonly lotesService: LotesService) { }
 
   @Post()
   create(@Body() createLoteDto, @Request() req) {
@@ -32,9 +33,9 @@ export class LotesController {
     return this.lotesService.findAll(req.user);
   }
 
-  @Get('procesar/cufes')
-  procesar() {
-    return this.lotesService.procesar();
+  @Post('procesar/cufes')
+  procesar(@Body() data) {
+    return this.lotesService.procesar(data.authUrl, data.loteId);
   }
 
   @Get(':id')

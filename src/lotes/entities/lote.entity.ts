@@ -22,6 +22,9 @@ export class Lote {
   @Column({ type: 'integer' })
   ctda_consultados: number;
 
+  @Column({ type: 'boolean', default: false })
+  procesado: boolean;
+
   @ManyToOne(() => User, (user) => user.lotes)
   user: User;
 

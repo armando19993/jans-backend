@@ -39,4 +39,4 @@ import { ComunicationsClientModule } from './comunications-client/comunications-
   providers: [AppService, PdfHandlerService],
   exports: [PdfHandlerService]
 })
-export class AppModule {}
+export class AppModule { }
