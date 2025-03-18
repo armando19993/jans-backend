@@ -85,6 +85,7 @@ export class LotesService {
 
   async procesar(authUrl: string, loteId: number) {
     try {
+      console.log(authUrl)
       const lote = await this.loteRepository.findOne({
         where: { id: loteId },
         relations: ['company'],
