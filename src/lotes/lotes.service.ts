@@ -114,6 +114,7 @@ export class LotesService {
       );
 
       let partitionKey = null;
+      console.log(authUrl)
       try {
         const documentUrlResponse = await axios.post(`${process.env.URL_BASE}/get_document_url`, {
           session_url: authUrl
