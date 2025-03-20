@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDate,
   IsDateString,
   IsEmail,
@@ -34,6 +35,12 @@ export class CreateCompanyDto {
 
   @IsDateString()
   date_end: string;
+
+  @IsBoolean()
+  service_radian: boolean;
+
+  @IsBoolean()
+  service_download: boolean;
 
   @IsOptional()
   status: STATUS_ENUM;

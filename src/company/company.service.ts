@@ -20,7 +20,7 @@ export class CompanyService {
     private readonly loteRepository: Repository<Lote>,
     @InjectRepository(Document)
     private readonly documentRepository: Repository<Document>,
-  ) {}
+  ) { }
 
   async create(createCompanyDto: CreateCompanyDto) {
     let data = await this.companyRepository.save(createCompanyDto);

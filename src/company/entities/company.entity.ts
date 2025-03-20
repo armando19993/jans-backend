@@ -40,6 +40,12 @@ export class Company {
   @Column({ type: 'date' })
   date_end: Date;
 
+  @Column({ default: true })
+  service_radian: boolean;
+
+  @Column({ default: false })
+  service_download: boolean;
+
   @Column({ type: 'enum', enum: STATUS_ENUM, default: STATUS_ENUM.ACTIVO })
   status: STATUS_ENUM
 
