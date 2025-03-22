@@ -462,19 +462,18 @@ export class LotesService {
   async reportAdmin(data: { startDate: Date, endDate: Date }) {
     const { startDate, endDate } = data;
 
-    // Consulta para agrupar por empresa
     const report = await this.loteRepository
       .createQueryBuilder('lote')
-      .leftJoinAndSelect('lote.company', 'company') // Unir con la entidad Company
-      .leftJoinAndSelect('lote.documents', 'documents') // Unir con la entidad Document
+      .leftJoinAndSelect('lote.company', 'company')
+      .leftJoin('lote.documents', 'documents') // Cambiado a leftJoin sin Select
       .select([
-        'company.id as companyId', // Seleccionar el ID de la empresa
-        'company.name as companyName', // Seleccionar el nombre de la empresa
-        'COUNT(lote.id) as totalLotes', // Contar el número de lotes por empresa
-        'COUNT(documents.id) as totalDocuments', // Contar el número de documentos por empresa
+        'company.id as companyId',
+        'company.name as companyName',
+        'COUNT(DISTINCT lote.id) as totalLotes', // Añadido DISTINCT para contar lotes únicos
+        'COUNT(documents.id) as totalDocuments',
       ])
-      .where('lote.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate }) // Filtrar por rango de fechas
-      .groupBy('company.id') // Agrupar por empresa
+      .where('lote.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy('company.id, company.name') // Incluir company.name en el groupBy
       .getRawMany();
 
     return report;
