@@ -3,7 +3,7 @@ import { CreateLoteDto } from './dto/create-lote.dto';
 import { UpdateLoteDto } from './dto/update-lote.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Lote } from './entities/lote.entity';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { Document } from 'src/documents/entities/document.entity';
 import { PdfHandlerService } from 'src/pdf/pdf.handler.service';
 import * as moment from 'moment';
@@ -457,6 +457,27 @@ export class LotesService {
     // Generar el archivo en un buffer
     const buffer = await workbook.xlsx.writeBuffer();
     return buffer;
+  }
+
+  async reportAdmin(data: { startDate: Date, endDate: Date }) {
+    const { startDate, endDate } = data;
+
+    // Consulta para agrupar por empresa
+    const report = await this.loteRepository
+      .createQueryBuilder('lote')
+      .leftJoinAndSelect('lote.company', 'company') // Unir con la entidad Company
+      .leftJoinAndSelect('lote.documents', 'documents') // Unir con la entidad Document
+      .select([
+        'company.id as companyId', // Seleccionar el ID de la empresa
+        'company.name as companyName', // Seleccionar el nombre de la empresa
+        'COUNT(lote.id) as totalLotes', // Contar el número de lotes por empresa
+        'COUNT(documents.id) as totalDocuments', // Contar el número de documentos por empresa
+      ])
+      .where('lote.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate }) // Filtrar por rango de fechas
+      .groupBy('company.id') // Agrupar por empresa
+      .getRawMany();
+
+    return report;
   }
 
   update(id: number, updateLoteDto: UpdateLoteDto) {

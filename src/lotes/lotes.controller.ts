@@ -64,4 +64,25 @@ export class LotesController {
     });
     res.send(buffer);
   }
+
+  @Get('/get/admin/report')
+  async getAdminReport(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    // Convertir las fechas a objetos Date
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+
+    // Validar que las fechas sean válidas
+    if (isNaN(startDateObj.getTime())) {
+      throw new Error('startDate no es una fecha válida');
+    }
+    if (isNaN(endDateObj.getTime())) {
+      throw new Error('endDate no es una fecha válida');
+    }
+
+    // Llamar al servicio con las fechas
+    return this.lotesService.reportAdmin({ startDate: startDateObj, endDate: endDateObj });
+  }
 }
