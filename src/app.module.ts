@@ -12,6 +12,8 @@ import { AuthModule } from './auth/auth.module';
 import { PdfHandlerService } from './pdf/pdf.handler.service';
 import { ComunicationsModule } from './comunications/comunications.module';
 import { ComunicationsClientModule } from './comunications-client/comunications-client.module';
+import { PackagesModule } from './packages/packages.module';
+import { PackagesItemsModule } from './packages-items/packages-items.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { ComunicationsClientModule } from './comunications-client/comunications-
     EventsModule,
     ComunicationsModule,
     ComunicationsClientModule,
+    PackagesModule,
+    PackagesItemsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PdfHandlerService],
